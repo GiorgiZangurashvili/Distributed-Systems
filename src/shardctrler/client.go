@@ -12,6 +12,8 @@ import "math/big"
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// Your data here.
+	ClientId int64
+	RequestId    int
 }
 
 func nrand() int64 {
@@ -25,13 +27,19 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// Your code here.
+	ck.RequestId = 0
+	ck.ClientId = nrand()
 	return ck
 }
 
 func (ck *Clerk) Query(num int) Config {
 	args := &QueryArgs{}
 	// Your code here.
+	ck.RequestId++
+	args.RequestId = ck.RequestId
 	args.Num = num
+	args.ClientId = ck.ClientId
+
 	for {
 		// try each known server.
 		for _, srv := range ck.servers {
@@ -45,10 +53,19 @@ func (ck *Clerk) Query(num int) Config {
 	}
 }
 
+// The Join RPC is used by an administrator to add new replica groups.
+// Its argument is a set of mappings from unique, non-zero replica group identifiers (GIDs) to lists of server names.
+// The shardctrler should react by creating a new configuration that includes the new replica groups.
+// The new configuration should divide the shards as evenly as possible among the full set of groups, and should move as
+// few shards as possible to achieve that goal. The shardctrler should allow re-use of a GID if it's not part of the current
+// configuration (i.e. a GID should be allowed to Join, then Leave, then Join again).
 func (ck *Clerk) Join(servers map[int][]string) {
 	args := &JoinArgs{}
 	// Your code here.
+	ck.RequestId++
+	args.RequestId = ck.RequestId
 	args.Servers = servers
+	args.ClientId = ck.ClientId
 
 	for {
 		// try each known server.
@@ -64,8 +81,12 @@ func (ck *Clerk) Join(servers map[int][]string) {
 }
 
 func (ck *Clerk) Leave(gids []int) {
+
 	args := &LeaveArgs{}
 	// Your code here.
+	ck.RequestId++
+	args.RequestId = ck.RequestId
+	args.ClientId = ck.ClientId
 	args.GIDs = gids
 
 	for {
@@ -84,6 +105,9 @@ func (ck *Clerk) Leave(gids []int) {
 func (ck *Clerk) Move(shard int, gid int) {
 	args := &MoveArgs{}
 	// Your code here.
+	args.ClientId = ck.ClientId
+	ck.RequestId++
+	args.RequestId = ck.RequestId
 	args.Shard = shard
 	args.GID = gid
 
